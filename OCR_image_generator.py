@@ -78,12 +78,13 @@ def get_chars(char_lines):
         char_line = random.choice(char_lines)
         if len(char_line)>0:
             break
-    line_len = len(char_line)         
-    char_len = random.randint(1,20)  #  4
-    if line_len<=char_len:
-        return char_line
-    char_start = random.randint(0,line_len-char_len)
-    chars = char_line[char_start:(char_start+char_len)]
+    # line_len = len(char_line)         
+    # char_len = random.randint(1,20)  #  4
+    # if line_len<=char_len:
+    #     return char_line
+    # char_start = random.randint(0,line_len-char_len)
+    # chars = char_line[char_start:(char_start+char_len)]
+    chars = char_line[0:]
     return chars
 
 
@@ -170,7 +171,7 @@ def get_horizontal_text_picture(image_file,color_lib,char_lines,fonts_list,font_
             
             #随机获得不定长的文字
             chars = get_chars(char_lines)
-
+            
             #随机选择一种字体
             font_path = random.choice(fonts_list)
             font_size = random.randint(cf.font_min_size,cf.font_max_size)
@@ -572,8 +573,8 @@ if __name__ == '__main__':
         
     parser.add_argument('--num_img', type=int, default=30, help="Number of images to generate")
     
-    parser.add_argument('--font_min_size', type=int, default=12)
-    parser.add_argument('--font_max_size', type=int, default=70,
+    parser.add_argument('--font_min_size', type=int, default=30)
+    parser.add_argument('--font_max_size', type=int, default=50,
                         help="Can help adjust the size of the generated text and the size of the picture")
     
     parser.add_argument('--bg_path', type=str, default='./background',
@@ -588,7 +589,7 @@ if __name__ == '__main__':
     parser.add_argument('--color_path', type=str, default='./models/colors_new.cp', 
                         help='Color font library used to generate text')
     
-    parser.add_argument('--chars_file',  type=str, default='dict5990.txt',
+    parser.add_argument('--chars_file',  type=str, default='chinese_cht_dict.txt',
                         help='Chars allowed to be appear in generated images')
 
     parser.add_argument('--customize_color', action='store_true', help='Support font custom color')
@@ -671,11 +672,11 @@ if __name__ == '__main__':
         img_path = os.path.join(img_root_path,imname)
 
         rnd = random.random()
-        if rnd<0.8: # 设定产生水平文本的概率
+        if rnd<1: # 设定产生水平文本的概率
             gen_img, chars = get_horizontal_text_picture(img_path,color_lib,char_lines,fonts_list,font_unsupport_chars,cf)       
         else:       #设定产生竖直文本的概率
             gen_img, chars = get_vertical_text_picture(img_path,color_lib,char_lines,fonts_list,font_unsupport_chars,cf)            
-        save_img_name = 'img_3_' + str(i).zfill(7) + '.jpg'
+        save_img_name = 'img_' + str(i).zfill(3) + '.jpg'
         
         if gen_img.mode != 'RGB':
             gen_img= gen_img.convert('RGB')           
@@ -713,7 +714,7 @@ if __name__ == '__main__':
     
             
         gen_img.save(cf.output_dir+save_img_name)
-        f.write(save_img_name+ ' '+chars+'\n')
+        f.write(save_img_name+'\t'+chars+'\n')
         print('gennerating:-------'+save_img_name)
         # plt.figure()
         # plt.imshow(np.asanyarray(gen_img))

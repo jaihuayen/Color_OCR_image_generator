@@ -10,7 +10,7 @@ import re,string
 punctuation = """！，。？｡＂＃＄％＆＇（）＊＋－／：；＜＝＞＠［＼］＾＿｀｛｜｝～｟｠｢｣､、〃》「」『』【】〔〕〖〗〘〙〚〛〜〝〞〟〰〾〿–—‘’‛“”„‟…‧﹏"""
 
 #np.random.seed(0)
-dictfile = "dict5990.txt"
+dictfile = "chinese_cht_dict.txt"
 corpus_file = "jingji.txt"
 output = "filted_jian_sentences.txt"
 filiter_txt="fileter.txt"
@@ -18,8 +18,8 @@ dict = []
 max_row_len = 20
 
 
-#mode = 'split'
-mode = 'filter'
+mode = 'split'
+# mode = 'filter'
 
 if mode == 'filter':
     with codecs.open(dictfile, mode='r', encoding='utf-8') as f:
