@@ -5,15 +5,20 @@ And the length and width of the generated picture is indefinite and the number o
 
 # Getting Started
 ### Dependency
-- This work was tested with python 3.7,and Ubuntu 18.03. You may need to install the following libraries. <br>
-* `numpy`
-* `pickle`
-* `PIL(pillow)`
-* `sklearn`
-* `matplotlib`
-* `hashlib`
-* `fontTools`
-* `cv2(opencv)`
+- This work was tested with python 3.7.
+
+Install the dependencies by pip:
+
+```
+pip install -U scikit-learn scipy matplotlib opencv-python-headless numpy pillow pyyaml easydict hashlib
+```
+
+Note the difference between this repository and the orginal repository:
+
+* Removed the text sampling since we want all the specific words be in the image.
+* Removed the vertical image generation.
+* Changed the minimum and maximum size of the image.
+* Support generation of traditional chinese ocr image generation
 
 # Code function display
 ## Running this code to add different parameters can generate text images with different effects, as follows:
