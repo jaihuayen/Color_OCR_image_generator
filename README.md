@@ -19,6 +19,7 @@ Note the difference between this repository and the orginal repository:
 * Removed the vertical image generation.
 * Changed the minimum and maximum size of the image.
 * Support generation of traditional chinese ocr image generation
+* Changed the dataset format in order to fit the type of PPOCR training dataset.
 
 # Code function display
 ## Running this code to add different parameters can generate text images with different effects, as follows:
