@@ -580,7 +580,7 @@ if __name__ == '__main__':
     parser.add_argument('--bg_path', type=str, default='./background',
                         help='The generated text pictures will use the pictures of this folder as the background')
                         
-    parser.add_argument('--fonts_path',type=str, default='./fonts/chinse_jian',
+    parser.add_argument('--fonts_path',type=str, default='./fonts/',
                         help='The font used to generate the picture')
     
     parser.add_argument('--corpus_path', type=str, default='./corpus', 
