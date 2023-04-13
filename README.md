@@ -5,21 +5,43 @@ And the length and width of the generated picture is indefinite and the number o
 
 # Getting Started
 ### Dependency
-- This work was tested with python 3.7.
+- This work was tested with python 3.7,and Ubuntu 18.03. You may need to install the following libraries. <br>
+* `numpy`
+* `pickle`
+* `PIL(pillow)`
+* `sklearn`
+* `matplotlib`
+* `hashlib`
+* `fontTools`
+* `cv2(opencv)`
 
-Install the dependencies by pip:
 
-```
-pip install -U scikit-learn scipy matplotlib opencv-python-headless numpy pillow pyyaml easydict hashlib
-```
+# Examples of generating images
+By default, simply run `python3 OCR_image_generator.py` will generate 30 text images with color channels in `output/` and a labels.txt file in current floder.<br>
 
-Note the difference between this repository and the orginal repository:
+## 1.horizontal_text_picture<br>
+![example1.jpg](./output/img_3_0000001.jpg)
+![example2.jpg](./output/img_3_0000002.jpg)
+![example3.jpg](./output/img_3_0000003.jpg)
 
-* Removed the text sampling since we want all the specific words be in the image.
-* Removed the vertical image generation.
-* Changed the minimum and maximum size of the image.
-* Support generation of traditional chinese ocr image generation
-* Changed the dataset format in order to fit the type of PPOCR training dataset.
+![example4.jpg](./output/img_3_0000004.jpg)
+
+![example3.jpg](./output/img_3_0000005.jpg) 
+![example4.jpg](./output/img_3_0000006.jpg) 
+
+![example3.jpg](./output/img_3_0000007.jpg) 
+![example4.jpg](./output/img_3_0000008.jpg)
+
+## 2.get_vertical_text_picture<br>
+
+![example3.jpg](./demo_image/v-1.jpg)
+![example4.jpg](./demo_image/v_2.jpg)
+
+![example3.jpg](./demo_image/v-3.jpg)
+![example4.jpg](./demo_image/v7.jpg)
+
+![example3.jpg](./demo_image/v4.jpg)
+![example4.jpg](./demo_image/v8.jpg)
 
 # Code function display
 ## Running this code to add different parameters can generate text images with different effects, as follows:

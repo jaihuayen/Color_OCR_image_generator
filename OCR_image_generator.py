@@ -161,7 +161,7 @@ def get_horizontal_text_picture(image_file,color_lib,char_lines,fonts_list,font_
     #随机加入空格
     rd = random.random()
     #print('rd',rd)
-    if rd < 0.3: 
+    if rd < 0.5: 
  
         while True:              
             width = 0
@@ -580,7 +580,7 @@ if __name__ == '__main__':
     parser.add_argument('--bg_path', type=str, default='./background',
                         help='The generated text pictures will use the pictures of this folder as the background')
                         
-    parser.add_argument('--fonts_path',type=str, default='./fonts/',
+    parser.add_argument('--fonts_path',type=str, default='./fonts/chinse_jian',
                         help='The font used to generate the picture')
     
     parser.add_argument('--corpus_path', type=str, default='./corpus', 
