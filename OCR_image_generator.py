@@ -30,7 +30,8 @@ from data_aug import apply_prydown
 from data_aug import apply_lr_motion
 from data_aug import apply_up_motion
 
-
+if not os.path.exists("output"):
+    os.makedirs("output")
 class FontColor(object):
     def __init__(self, col_file):
         with open(col_file, 'rb') as f:

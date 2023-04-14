@@ -1,1 +1,7 @@
 .vscode/
+__pycache__/
+tools/__pycache__/
+corpus_generator/.ipynb_checkpoints/
+output/
+
+labels.txt
