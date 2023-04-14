@@ -29,9 +29,6 @@ from data_aug import apply_blur_on_output
 from data_aug import apply_prydown
 from data_aug import apply_lr_motion
 from data_aug import apply_up_motion
-
-if not os.path.exists("output"):
-    os.makedirs("output")
 class FontColor(object):
     def __init__(self, col_file):
         with open(col_file, 'rb') as f:
@@ -615,9 +612,12 @@ if __name__ == '__main__':
       
     parser.add_argument('--output_dir', type=str, default='./output/', help='Images save dir')
 
-    
+    parser.add_argument('--label_file', type=str, default='labels.txt')
 
     cf = parser.parse_args()
+
+    if not os.path.exists(cf.output_dir):
+        os.makedirs(cf.output_dir)
     
     print('cf.config_file',cf.config_file)
     flag = load_config(cf.config_file) 
@@ -643,7 +643,7 @@ if __name__ == '__main__':
     
     
     # import matplotlib.pyplot as plt
-    labels_path = 'labels.txt'
+    labels_path = cf.label_file
     gs = 0
     if os.path.exists(labels_path):  # 支持中断程序后，在生成的图片基础上继续
         f = open(labels_path,'r',encoding='utf-8')
@@ -668,7 +668,7 @@ if __name__ == '__main__':
     img_n=0
     for i in range(gs+1,cf.num_img):
         img_n+=1
-        print('img_n',img_n)
+        print('train2_n',img_n)
         imname = random.choice(imnames)
         img_path = os.path.join(img_root_path,imname)
 
@@ -677,7 +677,7 @@ if __name__ == '__main__':
             gen_img, chars = get_horizontal_text_picture(img_path,color_lib,char_lines,fonts_list,font_unsupport_chars,cf)       
         else:       #设定产生竖直文本的概率
             gen_img, chars = get_vertical_text_picture(img_path,color_lib,char_lines,fonts_list,font_unsupport_chars,cf)            
-        save_img_name = 'img_' + str(i).zfill(3) + '.jpg'
+        save_img_name = 'train2_' + str(i).zfill(3) + '.jpg'
         
         if gen_img.mode != 'RGB':
             gen_img= gen_img.convert('RGB')           
