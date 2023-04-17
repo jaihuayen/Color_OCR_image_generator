@@ -668,7 +668,7 @@ if __name__ == '__main__':
     img_n=0
     for i in range(gs+1,cf.num_img):
         img_n+=1
-        print('train2_n',img_n)
+        print('img_n',img_n)
         imname = random.choice(imnames)
         img_path = os.path.join(img_root_path,imname)
 
@@ -677,7 +677,7 @@ if __name__ == '__main__':
             gen_img, chars = get_horizontal_text_picture(img_path,color_lib,char_lines,fonts_list,font_unsupport_chars,cf)       
         else:       #设定产生竖直文本的概率
             gen_img, chars = get_vertical_text_picture(img_path,color_lib,char_lines,fonts_list,font_unsupport_chars,cf)            
-        save_img_name = 'train2_' + str(i).zfill(3) + '.jpg'
+        save_img_name = 'img_' + str(i).zfill(3) + '.jpg'
         
         if gen_img.mode != 'RGB':
             gen_img= gen_img.convert('RGB')           
