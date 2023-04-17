@@ -18,32 +18,6 @@ And the length and width of the generated picture is indefinite and the number o
 
 # Examples of generating images
 By default, simply run `python3 OCR_image_generator.py` will generate 30 text images with color channels in `output/` and a labels.txt file in current floder.<br>
-
-## 1.horizontal_text_picture<br>
-![example1.jpg](./output/img_3_0000001.jpg)
-![example2.jpg](./output/img_3_0000002.jpg)
-![example3.jpg](./output/img_3_0000003.jpg)
-
-![example4.jpg](./output/img_3_0000004.jpg)
-
-![example3.jpg](./output/img_3_0000005.jpg) 
-![example4.jpg](./output/img_3_0000006.jpg) 
-
-![example3.jpg](./output/img_3_0000007.jpg) 
-![example4.jpg](./output/img_3_0000008.jpg)
-
-## 2.get_vertical_text_picture<br>
-
-![example3.jpg](./demo_image/v-1.jpg)
-![example4.jpg](./demo_image/v_2.jpg)
-
-![example3.jpg](./demo_image/v-3.jpg)
-![example4.jpg](./demo_image/v7.jpg)
-
-![example3.jpg](./demo_image/v4.jpg)
-![example4.jpg](./demo_image/v8.jpg)
-
-# Code function display
 ## Running this code to add different parameters can generate text images with different effects, as follows:
 Run `python3 OCR_image_generator.py ` will generate the following images<br>
 
