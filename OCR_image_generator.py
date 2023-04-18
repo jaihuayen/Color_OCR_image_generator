@@ -578,7 +578,7 @@ if __name__ == '__main__':
     parser.add_argument('--bg_path', type=str, default='./background',
                         help='The generated text pictures will use the pictures of this folder as the background')
                         
-    parser.add_argument('--fonts_path',type=str, default='./fonts/chinse_jian',
+    parser.add_argument('--fonts_path',type=str, default='./fonts/greek',
                         help='The font used to generate the picture')
     
     parser.add_argument('--corpus_path', type=str, default='./corpus', 
@@ -587,7 +587,7 @@ if __name__ == '__main__':
     parser.add_argument('--color_path', type=str, default='./models/colors_new.cp', 
                         help='Color font library used to generate text')
     
-    parser.add_argument('--chars_file',  type=str, default='chinese_cht_dict.txt',
+    parser.add_argument('--chars_file',  type=str, default='./dictionary/greek_eng_dict_v2.txt',
                         help='Chars allowed to be appear in generated images')
 
     parser.add_argument('--customize_color', action='store_true', help='Support font custom color')
