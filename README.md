@@ -77,25 +77,9 @@ If you need some vertical text in your scene, you can modify the parameters in t
 * `--ud_motion`: Apply up and down motion blur.
 * `--random_offset`: Randomly add offset.
 
-
-# About font files
-I sorted out about 700 fonts that can be used in generating OCR text pictures,
-Downloaded Baidu Cloud Link as follows:<br>
- [here1](https://pan.baidu.com/s/1dRp70rEVeauu9rWB7bfGZw). Extraction code:8kzt.   [here2](https://pan.baidu.com/s/1aHkYSxactHm4u5eEiqHDAA). Extraction code:s58p
-
-![example1.jpg](./demo_image/ziti.png)
-
-
-# Tools
-You can use `sentence_filter.py` script to select different modes(contains `filter` and `split` model) to 
-filter the text and remove the text that is not in the dictionary and to cut the text of different lengths.
-
-
 # Reference
 - https://github.com/Sanster/text_renderer
 - https://github.com/wang-tf/Chinese_OCR_synthetic_data
-
-
 # Contact
 Feel free to contact me if there is any question: <br>
 My mail address is jhsignal@126.com; 

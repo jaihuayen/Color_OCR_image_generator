@@ -20,13 +20,6 @@ def viz_img(text_im, fignum=1):
     plt.figure(fignum)
     plt.imshow(text_im, cmap='gray')
     plt.show(block=True)
-    # plt.hold(True)
-    #
-    # H, W = text_im.shape[:2]
-    # plt.gca().set_xlim([0, W - 1])
-    # plt.gca().set_ylim([H - 1, 0])
-    # plt.show(block=True)
-
 
 def prob(percent):
     """
