@@ -2,334 +2,214 @@
 
 import cv2
 import numpy as np
-import pickle
 import random
 from PIL import Image,ImageDraw,ImageFont
 import os
-from sklearn.cluster import KMeans
-import matplotlib.pyplot as plt
 import time
-
-import hashlib
-from fontTools.ttLib import TTCollection, TTFont
+from tqdm import tqdm, trange
 import argparse
 
 from tools.config import load_config
-from noiser import Noiser
-from tools.utils import apply
-from data_aug import apply_blur_on_output
-from data_aug import apply_prydown
-from data_aug import apply_lr_motion
-from data_aug import apply_up_motion
+from tools.noiser import Noiser
+from tools.utils import *
+from tools.data_aug import apply_blur_on_output
+from tools.data_aug import apply_prydown
+from tools.data_aug import apply_lr_motion
+from tools.data_aug import apply_up_motion
 
-class FontColor(object):
-    def __init__(self, col_file):
-        with open(col_file, 'rb') as f:
-            u = pickle._Unpickler(f)
-            u.encoding = 'latin1'
-            self.colorsRGB = u.load()
-        self.ncol = self.colorsRGB.shape[0]
-
-        # convert color-means from RGB to LAB for better nearest neighbour
-        # computations:
-        self.colorsRGB = np.r_[self.colorsRGB[:, 0:3], self.colorsRGB[:, 6:9]].astype('uint8')
-        self.colorsLAB = np.squeeze(cv2.cvtColor(self.colorsRGB[None, :, :], cv2.COLOR_RGB2Lab))
-
-def Lab2RGB(c):
-    if type(c) == list:
-        return cv2.cvtColor(np.array([c], dtype=np.uint8)[None,:],cv2.COLOR_Lab2RGB)
-    else:
-        return cv2.cvtColor(c[None, :, :],cv2.COLOR_Lab2RGB)
-
-def RGB2Lab(rgb):
-    import numpy as np
-    if type(rgb) == list:
-        return(cv2.cvtColor(np.asarray([rgb],dtype=np.uint8)[None,:],cv2.COLOR_RGB2Lab))
-    else:
-        return cv2.cvtColor(rgb, cv2.COLOR_RGB2Lab)
-
-def get_char_lines(txt_root_path):
-    txt_files = os.listdir(txt_root_path) 
-    char_lines = []
-    for txt in txt_files:
-        f = open(os.path.join(txt_root_path,txt),mode='r', encoding='utf-8')
-        lines = f.readlines()
-        f.close()
-        for line in lines:
-            char_lines.append(line.strip().replace('\xef\xbb\xbf', '').replace('\ufeff', ''))
-    return char_lines
-
-# 获取chars
-def get_chars(char_lines):
-    while True:
-        char_line = random.choice(char_lines)
-        if len(char_line)>0:
-            break
-    chars = char_line[0:]
-    return chars
-
-# 选择字体
-def chose_font(fonts,font_sizes):
-    f_size = random.choice(font_sizes)  # 不满就取最大字号吧
-    font = random.choice(fonts[f_size])
-    return font
-
-# 分析图片，获取最适宜的字体颜色
-def get_bestcolor(color_lib, crop_lab):
-    if crop_lab.size > 4800:
-        crop_lab = cv2.resize(crop_lab,(100,16))  #将图像转成100*16大小的图片
-    labs = np.reshape(np.asarray(crop_lab), (-1, 3))         #len(labs)长度为160   
-    clf = KMeans(n_clusters=8)
-    clf.fit(labs)
-    
-    #clf.labels_是每个聚类中心的数据（假设有八个类，则每个数据标签属于每个类的数据格式就是从0-8），clf.cluster_centers_是每个聚类中心   
-    total = [0] * 8
-   
-    for i in clf.labels_:
-        total[i] = total[i] + 1            #计算每个类中总共有多少个数据
- 
-    clus_result = [[i, j] for i, j in zip(clf.cluster_centers_, total)]  #聚类中心，是一个长度为8的数组
-    clus_result.sort(key=lambda x: x[1], reverse=True)    #八个类似这样的数组，第一个数组表示类中心，第二个数字表示属于该类中心的一共有多少数据[[array([242.55732946, 128.1509434 , 122.29608128]), 689], [array([245.03461538, 128.59230769, 125.88846154]), 260],，，，]
-  
-    color_sample = random.sample(range(color_lib.colorsLAB.shape[0]), 500)   # 范围是（0,9882），随机从这些数字里面选取500个
-
-    
-    def caculate_distance(color_lab, clus_result):
-        weight = [1, 0.8, 0.6, 0.4, 0.2, 0.1, 0.05, 0.01]
-        d = 0
-        for c, w in zip(clus_result, weight):
-            #计算八个聚类中心和当前所选取颜色距离的标准差之和，每个随机选取的颜色当前聚类中心的差值
-            d = d + np.linalg.norm(c[0] - color_lab)           
-        return d
- 
-    color_dis = list(map(lambda x: [caculate_distance(color_lib.colorsLAB[x], clus_result), x], color_sample)) 
-    color_dis.sort(key=lambda x: x[0], reverse=True)
-    color_num = color_dis[0:200]
-    color_l = random.choice(color_num)[1]
-    return tuple(color_lib.colorsRGB[color_l])
-    
-def word_in_font(word,unsupport_chars,font_path):
-    for c in word:
-        if c in unsupport_chars:
-            print('Retry pick_font(), \'%s\' contains chars \'%s\' not supported by font %s' % (word, c, font_path))  
-            return True
-        else:
-            continue
-
-def get_horizontal_text_picture(image_file,color_lib,char_lines,fonts_list,font_unsupport_chars,cf):
+def get_horizontal_text_picture(bg_imnames,chars,fonts_list,font_unsupport_chars,args):
     retry = 0
-    img = Image.open(image_file)
-    if img.mode != 'RGB':
-        img = img.convert('RGB')
-    w, h = img.size
 
-    while True:            
-        chars = get_chars(char_lines)
-    
-        #随机选择一种字体
-        font_path = random.choice(fonts_list)
-        font_size = random.randint(cf.font_min_size,cf.font_max_size)
-        
-        #获得字体，及其大小
-        font = ImageFont.truetype(font_path, font_size) 
-        #不支持的字体文字，按照字体路径在该字典里索引即可    
-        unsupport_chars = font_unsupport_chars[font_path]  
-        f_w, f_h = font.getsize(chars)
-        if f_w < w:
-            # 完美分割时应该取的
-            x1 = random.randint(0, w - f_w)
-            y1 = random.randint(0, h - f_h)
-            x2 = x1 + f_w
-            y2 = y1 + f_h
-                            
-            #加一点偏移
-            if cf.random_offset:                
-                # 随机加一点偏移，且随机偏移的概率占30%                
-                rd = random.random()
-                if rd < 0.3:  # 设定偏移的概率
-                    crop_y1 = y1 - random.random() / 10 * f_h
-                    crop_x1 = x1 - random.random() / 8 * f_h
-                    crop_y2 = y2 + random.random() / 10 * f_h
-                    crop_x2 = x2 + random.random() / 8 * f_h
-                    crop_y1 = int(max(0, crop_y1))
-                    crop_x1 = int(max(0, crop_x1))
-                    crop_y2 = int(min(h, crop_y2))
-                    crop_x2 = int(min(w, crop_x2))
+    #随机加入空格
+    rd = random.random()
+    if rd < 0.5: 
+
+        while True:
+            bg_imname = random.choice(bg_imnames)
+            img_path = os.path.join(bg_img_root_path, bg_imname)
+            img = Image.open(img_path)
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            w, h = img.size
+
+            width = 0
+            height = 0
+            chars_size = []
+            y_offset = 10 ** 5
+            
+            #随机选择一种字体
+            font_path = random.choice(fonts_list)
+            font_size = random.randint(args.font_min_size,args.font_max_size)
+            
+            #获得字体，及其大小
+            font = ImageFont.truetype(font_path, font_size) 
+            #不支持的字体文字，按照字体路径在该字典里索引即可        
+            unsupport_chars = font_unsupport_chars[font_path]
+            for c in chars:
+                size = font.getsize(c)
+                chars_size.append(size)
+                width += size[0]
+                
+                # set max char height as word height
+                if size[1] > height:
+                    height = size[1]
+
+                # Min chars y offset as word y offset
+                # Assume only y offset
+                c_offset = font.getoffset(c)
+                if c_offset[1] < y_offset:
+                    y_offset = c_offset[1]
+                    
+            char_space_width = int(height * np.random.uniform(-0.1, 0.3))
+
+            width += (char_space_width * (len(chars) - 1))
+            
+            f_w, f_h = width,height
+            if f_w < w:
+                # 完美分割时应该取的
+                x1 = random.randint(0, w - f_w)
+                y1 = random.randint(0, h - f_h)
+                x2 = x1 + f_w
+                y2 = y1 + f_h
+                
+                #加一点偏移
+                if args.random_offset:
+                    # 随机加一点偏移，且随机偏移的概率占30%
+                    rd = random.random()        
+                    if rd < 0.3:  # 设定偏移的概率
+                        crop_y1 = y1 - random.random() / 5 * f_h
+                        crop_x1 = x1 - random.random() / 2 * f_h
+                        crop_y2 = y2 + random.random() / 5 * f_h
+                        crop_x2 = x2 + random.random() / 2 * f_h
+                        crop_y1 = int(max(0, crop_y1))
+                        crop_x1 = int(max(0, crop_x1))
+                        crop_y2 = int(min(h, crop_y2))
+                        crop_x2 = int(min(w, crop_x2))
+                    else:
+                        crop_y1 = y1
+                        crop_x1 = x1
+                        crop_y2 = y2
+                        crop_x2 = x2
                 else:
                     crop_y1 = y1
                     crop_x1 = x1
                     crop_y2 = y2
                     crop_x2 = x2
-            else:
-                crop_y1 = y1
-                crop_x1 = x1
-                crop_y2 = y2
-                crop_x2 = x2    
-
-            crop_img = img.crop((crop_x1, crop_y1, crop_x2, crop_y2))
-            crop_lab = cv2.cvtColor(np.asarray(crop_img), cv2.COLOR_RGB2Lab)
+                
+                crop_img = img.crop((crop_x1, crop_y1, crop_x2, crop_y2))
+                crop_lab = cv2.cvtColor(np.asarray(crop_img), cv2.COLOR_RGB2Lab)
             
-            #判断语料中每个字是否在字体文件中
-            all_in_fonts=word_in_font(chars,unsupport_chars,font_path)
+                all_in_fonts = word_in_font(chars,unsupport_chars,font_path)
 
-            # 颜色标准差阈值，颜色太丰富就不要了,单词不在字体文件中不要
-            if (np.linalg.norm(np.reshape(np.asarray(crop_lab),(-1,3)).std(axis=0))>55 or all_in_fonts) and retry<30:  
-                retry = retry+1                               
-                print('retry',retry)
-                continue
-
-            if not cf.customize_color:    
-                best_color = get_bestcolor(color_lib, crop_lab)
-            ##可以自定义字体颜色
-            else:
-                r = random.choice([7,9,11,14,13,15,17,20,22,50,100])
-                g = random.choice([8,10,12,14,21,22,24,23,50,100])
-                b = random.choice([6,8,9,10,11,30,21,34,56,100])
+                # background color filter
+                if (np.linalg.norm(np.reshape(np.asarray(crop_lab),(-1,3)).std(axis=0))>55 or all_in_fonts) and retry<30:  
+                    retry = retry + 1
+                    print('crop background retry',retry)
+                    continue
+                r = random.randint(0,255)
+                g = random.randint(0,255)
+                b = random.randint(0,255)
                 best_color = (r,g,b)
-            break
-        else:
-            pass
+
+                break
+            else:
+                print('bad background image name', img_path)
+                pass
+
+        draw = ImageDraw.Draw(img)
+
+        for i, c in enumerate(chars):
+            draw.text((x1, y1), c, best_color, font=font)
+            x1 += (chars_size[i][0] + char_space_width)
+
+        crop_img = img.crop((crop_x1, crop_y1, crop_x2, crop_y2))
+
+    else:
+        while True:
+            bg_imname = random.choice(bg_imnames)
+            img_path = os.path.join(bg_img_root_path, bg_imname)
+            img = Image.open(img_path)
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            w, h = img.size
+        
+            #随机选择一种字体
+            font_path = random.choice(fonts_list)
+            font_size = random.randint(args.font_min_size,args.font_max_size)
+            
+            #获得字体，及其大小
+            font = ImageFont.truetype(font_path, font_size) 
+            #不支持的字体文字，按照字体路径在该字典里索引即可    
+            unsupport_chars = font_unsupport_chars[font_path]  
+            f_w, f_h = font.getsize(chars)
+            if f_w < w:
+                # 完美分割时应该取的
+                x1 = random.randint(0, w - f_w)
+                y1 = random.randint(0, h - f_h)
+                x2 = x1 + f_w
+                y2 = y1 + f_h
+                                
+                #加一点偏移
+                if args.random_offset:                
+                    # 随机加一点偏移，且随机偏移的概率占30%                
+                    rd = random.random()
+                    if rd < 0.3:  # 设定偏移的概率
+                        crop_y1 = y1 - random.random() / 10 * f_h
+                        crop_x1 = x1 - random.random() / 8 * f_h
+                        crop_y2 = y2 + random.random() / 10 * f_h
+                        crop_x2 = x2 + random.random() / 8 * f_h
+                        crop_y1 = int(max(0, crop_y1))
+                        crop_x1 = int(max(0, crop_x1))
+                        crop_y2 = int(min(h, crop_y2))
+                        crop_x2 = int(min(w, crop_x2))
+                    else:
+                        crop_y1 = y1
+                        crop_x1 = x1
+                        crop_y2 = y2
+                        crop_x2 = x2
+                else:
+                    crop_y1 = y1
+                    crop_x1 = x1
+                    crop_y2 = y2
+                    crop_x2 = x2    
+
+                crop_img = img.crop((crop_x1, crop_y1, crop_x2, crop_y2))
+                crop_lab = cv2.cvtColor(np.asarray(crop_img), cv2.COLOR_RGB2Lab)
+                
+                #判断语料中每个字是否在字体文件中
+                all_in_fonts=word_in_font(chars,unsupport_chars,font_path)
+
+                # 颜色标准差阈值，颜色太丰富就不要了,单词不在字体文件中不要
+                if (np.linalg.norm(np.reshape(np.asarray(crop_lab),(-1,3)).std(axis=0))>55 or all_in_fonts) and retry<30:  
+                    retry = retry+1                               
+                    print('crop background retry',retry)
+                    continue
+                
+                r = random.randint(0,255)
+                g = random.randint(0,255)
+                b = random.randint(0,255)
+                best_color = (r,g,b)
+
+                break
+            else:
+                print('bad background image name', img_path)
+                pass
 
     draw = ImageDraw.Draw(img)
     draw.text((x1, y1), chars, best_color, font=font)
     crop_img = img.crop((crop_x1, crop_y1, crop_x2, crop_y2))
-            
+                
     return crop_img, chars
-
-def get_fonts(fonts_path):
-    font_files = os.listdir(fonts_path)
-    fonts_list=[]
-    for font_file in font_files:
-        font_path=os.path.join(fonts_path,font_file)
-        fonts_list.append(font_path)
-    return fonts_list
-
-def get_unsupported_chars(fonts, chars_file):
-    """
-    Get fonts unsupported chars by loads/saves font supported chars from cache file
-    :param fonts:
-    :param chars_file:
-    :return: dict
-        key -> font_path
-        value -> font unsupported chars
-    """
-    charset = load_chars(chars_file)
-    charset = ''.join(charset)
-    fonts_chars = get_fonts_chars(fonts, chars_file)
-    fonts_unsupported_chars = {}
-    for font_path, chars in fonts_chars.items():
-        unsupported_chars = list(filter(lambda x: x not in chars, charset))
-        fonts_unsupported_chars[font_path] = unsupported_chars
-    return fonts_unsupported_chars
-
-def load_chars(filepath):
-    if not os.path.exists(filepath):
-        print("Chars file not exists.")
-        exit(1)
-
-    ret = ''
-    with open(filepath, 'r', encoding='utf-8') as f:
-        while True:
-            line = f.readline()
-            if not line:
-                break
-            ret += line[0]
-    return ret
-
-def get_fonts_chars(fonts, chars_file):
-    """
-    loads/saves font supported chars from cache file
-    :param fonts: list of font path. e.g ['./data/fonts/msyh.ttc']
-    :param chars_file: arg from parse_args
-    :return: dict
-        key -> font_path
-        value -> font supported chars
-    """
-    out = {}
-
-    cache_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../', '.caches'))
-    if not os.path.exists(cache_dir):
-        os.makedirs(cache_dir)
-
-    chars = load_chars(chars_file)
-    chars = ''.join(chars)
-
-    for font_path in fonts:
-        string = ''.join([font_path, chars])
-        file_md5 = md5(string)
-
-        cache_file_path = os.path.join(cache_dir, file_md5)
-
-        if not os.path.exists(cache_file_path):
-            ttf = load_font(font_path)
-            _, supported_chars = check_font_chars(ttf, chars)
-            print('Save font(%s) supported chars(%d) to cache' % (font_path, len(supported_chars)))
-
-            with open(cache_file_path, 'wb') as f:
-                pickle.dump(supported_chars, f, pickle.HIGHEST_PROTOCOL)
-        else:
-            with open(cache_file_path, 'rb') as f:
-                supported_chars = pickle.load(f)
-            print('Load font(%s) supported chars(%d) from cache' % (font_path, len(supported_chars)))
-
-        out[font_path] = supported_chars
-
-    return out
-
-def load_font(font_path):
-    """
-    Read ttc, ttf, otf font file, return a TTFont object
-    """
-
-    # ttc is collection of ttf
-    if font_path.endswith('ttc'):
-        ttc = TTCollection(font_path)
-        # assume all ttfs in ttc file have same supported chars
-        return ttc.fonts[0]
-
-    if font_path.endswith('ttf') or font_path.endswith('TTF') or font_path.endswith('otf'):
-        ttf = TTFont(font_path, 0, allowVID=0,
-                     ignoreDecompileErrors=True,
-                     fontNumber=-1)
-
-        return ttf
-    
-def md5(string):
-    m = hashlib.md5()
-    m.update(string.encode('utf-8'))
-    return m.hexdigest()
-
-
-def check_font_chars(ttf, charset):
-    """
-    Get font supported chars and unsupported chars
-    :param ttf: TTFont ojbect
-    :param charset: chars
-    :return: unsupported_chars, supported_chars
-    """
-    chars_int=set()
-    for table in ttf['cmap'].tables:
-        for k,v in table.cmap.items():
-            chars_int.add(k)            
-            
-    unsupported_chars = []
-    supported_chars = []
-    for c in charset:
-        if ord(c) not in chars_int:
-            unsupported_chars.append(c)
-        else:
-            supported_chars.append(c)
-
-    ttf.close()
-    return unsupported_chars, supported_chars
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-        
-    parser.add_argument('--num_img', type=int, default=30, help="Number of images to generate")
     
-    parser.add_argument('--font_min_size', type=int, default=30)
+    parser.add_argument('--num_img', type=int, default=30, help="Number of images per text to generate")
+
+    parser.add_argument('--font_min_size', type=int, default=30,
+                        help="Can help adjust the size of the generated text and the size of the picture")
+    
     parser.add_argument('--font_max_size', type=int, default=50,
                         help="Can help adjust the size of the generated text and the size of the picture")
     
@@ -342,20 +222,15 @@ if __name__ == '__main__':
     parser.add_argument('--corpus_path', type=str, default='./corpus', 
                         help='The corpus used to generate the text picture')
     
-    parser.add_argument('--color_path', type=str, default='./models/colors_new.cp', 
-                        help='Color font library used to generate text')
-    
     parser.add_argument('--chars_file',  type=str, default='./dictionary/greek_eng_dict_v2.txt',
                         help='Chars allowed to be appear in generated images')
-
-    parser.add_argument('--customize_color', action='store_true', help='Support font custom color')
     
     parser.add_argument('--blur', action='store_true', default=False,
                         help="Apply gauss blur to the generated image")    
     
     parser.add_argument('--prydown', action='store_true', default=False,
                     help="Blurred image, simulating the effect of enlargement of small pictures")
-
+    
     parser.add_argument('--lr_motion', action='store_true', default=False,
                     help="Apply left and right motion blur")
                     
@@ -363,105 +238,92 @@ if __name__ == '__main__':
                     help="Apply up and down motion blur")                    
     
     parser.add_argument('--random_offset', action='store_true', default=True,
-                help="Randomly add offset") 
-    #将noise.yaml中noise.enable设置成true，生成图片将随机加入噪音
-    parser.add_argument('--config_file', type=str, default='noise.yaml',
+                help="Randomly add offset")
+    
+    # enable noise.enable as true in noise.yaml to randomly add noice in generating images
+    parser.add_argument('--config_file', type=str, default='./tools/noise.yaml',
                     help='Set the parameters when rendering images')
-      
+    
     parser.add_argument('--output_dir', type=str, default='./output/', help='Images save dir')
 
-    parser.add_argument('--label_file', type=str, default='labels.txt')
+    parser.add_argument('--label_file', type=str, default='labels.txt', help='Label txt save path')
 
-    cf = parser.parse_args()
+    args = parser.parse_args()
 
-    if not os.path.exists(cf.output_dir):
-        os.makedirs(cf.output_dir)
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir)
     
-    print('cf.config_file',cf.config_file)
-    flag = load_config(cf.config_file) 
+    # print('args.config_file',args.config_file)
+    flag = load_config(args.config_file) 
     
-    #实例化噪音参数
+    # noiser parameters
     noiser = Noiser(flag) 
-    
-    # 读入字体色彩库
-    color_lib = FontColor(cf.color_path)
-    # 读入字体
-    print('color_lib',color_lib)
-    fonts_path = cf.fonts_path
 
-    # Read Corpus file
-    txt_root_path = cf.corpus_path
-    char_lines = get_char_lines(txt_root_path=txt_root_path)     
-     
-    #将该文件的字体以"路径+字体"的形式存放到列表中
+    # load font path
+    fonts_path = args.fonts_path
     fonts_list = get_fonts(fonts_path)
 
-    bg_img_root_path = cf.bg_path
-    bg_imnames=os.listdir(bg_img_root_path)
+    # Read Corpus file
+    txt_root_path = args.corpus_path
+    char_lines = get_char_lines(txt_root_path=txt_root_path)
+
+    bg_img_root_path = args.bg_path
+    bg_imnames = os.listdir(bg_img_root_path)
     
-    labels_path = cf.label_file
-    gs = 0
-    if os.path.exists(labels_path):  # 支持中断程序后，在生成的图片基础上继续
-        f = open(labels_path,'r',encoding='utf-8')
-        lines = list(f.readlines())
-        #print('lines',lines[1])
-        f.close()
-        gs = int(lines[-1].strip().split('.')[0].split('_')[1])
-        print('Resume generating from step %d'%gs)
-        print('gs',gs)
+    labels_path = args.label_file
         
-    #字典文件    
-    chars_file = cf.chars_file
+    # dictionary path    
+    chars_file = args.chars_file
 
     '''
-    返回的是字典，key对应font_path,value对应字体支持的字符
+    返回的是字典, key对应font_path,value对应字体支持的字符
     '''
     font_unsupport_chars = get_unsupported_chars(fonts_list, chars_file)
     
     f = open(labels_path,'a',encoding='utf-8')
     print('start generating...')
     t0 = time.time()
-    img_n = 0
-    for i in range(gs + 1, cf.num_img + 1):
-        img_n += 1
-        print('img_n',img_n)
-        bg_imname = random.choice(bg_imnames)
-        img_path = os.path.join(bg_img_root_path, bg_imname)
-        gen_img, chars = get_horizontal_text_picture(img_path, color_lib, char_lines, fonts_list, font_unsupport_chars, cf)
-        save_img_name = 'img_' + str(i).zfill(3) + '.jpg'
+    for j in tqdm(range(len(char_lines))):
+        print(char_lines[j])
+        img_n = 0
+        for i in range(args.num_img):
+            img_n += 1
+            # print('img_n',img_n)
+            gen_img, chars = get_horizontal_text_picture(bg_imnames, char_lines[j], fonts_list, font_unsupport_chars, args)
+            save_img_name = 'img_' + str(j).zfill(3) + '_' + str(i).zfill(3) + '.jpg'
+            
+            if gen_img.mode != 'RGB':
+                gen_img= gen_img.convert('RGB')
+            
+            #高斯模糊
+            if args.blur:
+                image_arr = np.array(gen_img) 
+                gen_img = apply_blur_on_output(image_arr)            
+                gen_img = Image.fromarray(np.uint8(gen_img))
+            #模糊图像，模拟小图片放大的效果
+            if args.prydown:
+                image_arr = np.array(gen_img) 
+                gen_img = apply_prydown(image_arr)
+                gen_img = Image.fromarray(np.uint8(gen_img))
+            #左右运动模糊
+            if args.lr_motion:
+                image_arr = np.array(gen_img)
+                gen_img = apply_lr_motion(image_arr)
+                gen_img = Image.fromarray(np.uint8(gen_img))       
+            #上下运动模糊       
+            if args.ud_motion:
+                image_arr = np.array(gen_img)
+                gen_img = apply_up_motion(image_arr)        
+                gen_img = Image.fromarray(np.uint8(gen_img)) 
         
-        if gen_img.mode != 'RGB':
-            gen_img= gen_img.convert('RGB')
-        
-        #高斯模糊
-        if cf.blur:
-            image_arr = np.array(gen_img) 
-            gen_img = apply_blur_on_output(image_arr)            
-            gen_img = Image.fromarray(np.uint8(gen_img))
-        #模糊图像，模拟小图片放大的效果
-        if cf.prydown:
-            image_arr = np.array(gen_img) 
-            gen_img = apply_prydown(image_arr)
-            gen_img = Image.fromarray(np.uint8(gen_img))
-        #左右运动模糊
-        if cf.lr_motion:
-            image_arr = np.array(gen_img)
-            gen_img = apply_lr_motion(image_arr)
-            gen_img = Image.fromarray(np.uint8(gen_img))       
-        #上下运动模糊       
-        if cf.ud_motion:
-            image_arr = np.array(gen_img)
-            gen_img = apply_up_motion(image_arr)        
-            gen_img = Image.fromarray(np.uint8(gen_img)) 
-    
-        if apply(flag.noise):
-            gen_img = np.clip(gen_img, 0., 255.)
-            gen_img = noiser.apply(gen_img)
-            gen_img = Image.fromarray(np.uint8(gen_img))
+            if apply(flag.noise):
+                gen_img = np.clip(gen_img, 0., 255.)
+                gen_img = noiser.apply(gen_img)
+                gen_img = Image.fromarray(np.uint8(gen_img))
 
-        gen_img.save(cf.output_dir+save_img_name)
-        f.write(save_img_name+'\t'+chars+'\n')
-        print('gennerating:-------'+save_img_name)
+            gen_img.save(args.output_dir+save_img_name)
+            f.write(save_img_name+'\t'+chars+'\n')
+            # print('gennerating:-------'+save_img_name)
     t1=time.time()
-    print('all_time',t1-t0)
     f.close()
+    print('all_time',t1-t0)
