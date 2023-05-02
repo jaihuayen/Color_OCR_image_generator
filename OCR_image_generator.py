@@ -6,7 +6,7 @@ import random
 from PIL import Image,ImageDraw,ImageFont
 import os
 import time
-from tqdm import tqdm, trange
+from tqdm import tqdm
 import argparse
 
 from tools.config import load_config
@@ -17,10 +17,10 @@ from tools.data_aug import apply_prydown
 from tools.data_aug import apply_lr_motion
 from tools.data_aug import apply_up_motion
 
-def get_horizontal_text_picture(bg_imnames,chars,fonts_list,font_unsupport_chars,args):
+def generate_text_picture(bg_imnames,chars,fonts_list,font_unsupport_chars,args):
     retry = 0
 
-    #随机加入空格
+    # random add spacing between characters with 0.5 probability
     rd = random.random()
     if rd < 0.5: 
 
@@ -35,16 +35,18 @@ def get_horizontal_text_picture(bg_imnames,chars,fonts_list,font_unsupport_chars
             width = 0
             height = 0
             chars_size = []
-            y_offset = 10 ** 5
             
-            #随机选择一种字体
             font_path = random.choice(fonts_list)
             font_size = random.randint(args.font_min_size,args.font_max_size)
             
-            #获得字体，及其大小
             font = ImageFont.truetype(font_path, font_size) 
-            #不支持的字体文字，按照字体路径在该字典里索引即可        
             unsupport_chars = font_unsupport_chars[font_path]
+
+            not_in_fonts = word_in_font(chars,unsupport_chars,font_path)
+
+            if not_in_fonts:
+                print('font not support. font pick retry.')
+
             for c in chars:
                 size = font.getsize(c)
                 chars_size.append(size)
@@ -53,30 +55,20 @@ def get_horizontal_text_picture(bg_imnames,chars,fonts_list,font_unsupport_chars
                 # set max char height as word height
                 if size[1] > height:
                     height = size[1]
-
-                # Min chars y offset as word y offset
-                # Assume only y offset
-                c_offset = font.getoffset(c)
-                if c_offset[1] < y_offset:
-                    y_offset = c_offset[1]
                     
             char_space_width = int(height * np.random.uniform(-0.1, 0.3))
-
             width += (char_space_width * (len(chars) - 1))
             
             f_w, f_h = width,height
             if f_w < w:
-                # 完美分割时应该取的
                 x1 = random.randint(0, w - f_w)
                 y1 = random.randint(0, h - f_h)
                 x2 = x1 + f_w
                 y2 = y1 + f_h
                 
-                #加一点偏移
                 if args.random_offset:
-                    # 随机加一点偏移，且随机偏移的概率占30%
                     rd = random.random()        
-                    if rd < 0.3:  # 设定偏移的概率
+                    if rd < 0.3:
                         crop_y1 = y1 - random.random() / 5 * f_h
                         crop_x1 = x1 - random.random() / 2 * f_h
                         crop_y2 = y2 + random.random() / 5 * f_h
@@ -98,13 +90,11 @@ def get_horizontal_text_picture(bg_imnames,chars,fonts_list,font_unsupport_chars
                 
                 crop_img = img.crop((crop_x1, crop_y1, crop_x2, crop_y2))
                 crop_lab = cv2.cvtColor(np.asarray(crop_img), cv2.COLOR_RGB2Lab)
-            
-                all_in_fonts = word_in_font(chars,unsupport_chars,font_path)
 
                 # background color filter
-                if (np.linalg.norm(np.reshape(np.asarray(crop_lab),(-1,3)).std(axis=0))>55 or all_in_fonts) and retry<30:  
-                    retry = retry + 1
-                    print('crop background retry',retry)
+                if (np.linalg.norm(np.reshape(np.asarray(crop_lab),(-1,3)).std(axis=0))>55) and retry<30:  
+                    retry += 1
+                    print('crop background color too abundant retry.')
                     continue
                 r = random.randint(0,255)
                 g = random.randint(0,255)
@@ -113,7 +103,7 @@ def get_horizontal_text_picture(bg_imnames,chars,fonts_list,font_unsupport_chars
 
                 break
             else:
-                print('bad background image name', img_path)
+                print("background image too small retry. Image name:{}".format(img_path))
                 pass
 
         draw = ImageDraw.Draw(img)
@@ -132,28 +122,28 @@ def get_horizontal_text_picture(bg_imnames,chars,fonts_list,font_unsupport_chars
             if img.mode != 'RGB':
                 img = img.convert('RGB')
             w, h = img.size
-        
-            #随机选择一种字体
+
             font_path = random.choice(fonts_list)
-            font_size = random.randint(args.font_min_size,args.font_max_size)
+            font_size = random.randint(args.font_min_size, args.font_max_size)
             
-            #获得字体，及其大小
             font = ImageFont.truetype(font_path, font_size) 
-            #不支持的字体文字，按照字体路径在该字典里索引即可    
             unsupport_chars = font_unsupport_chars[font_path]  
+            not_in_fonts = word_in_font(chars,unsupport_chars, font_path)
+
+            if not_in_fonts:
+                retry = retry + 1
+                print('font not support. font pick retry.')
+
             f_w, f_h = font.getsize(chars)
             if f_w < w:
-                # 完美分割时应该取的
                 x1 = random.randint(0, w - f_w)
                 y1 = random.randint(0, h - f_h)
                 x2 = x1 + f_w
                 y2 = y1 + f_h
                                 
-                #加一点偏移
-                if args.random_offset:                
-                    # 随机加一点偏移，且随机偏移的概率占30%                
+                if args.random_offset:                             
                     rd = random.random()
-                    if rd < 0.3:  # 设定偏移的概率
+                    if rd < 0.3:
                         crop_y1 = y1 - random.random() / 10 * f_h
                         crop_x1 = x1 - random.random() / 8 * f_h
                         crop_y2 = y2 + random.random() / 10 * f_h
@@ -175,14 +165,11 @@ def get_horizontal_text_picture(bg_imnames,chars,fonts_list,font_unsupport_chars
 
                 crop_img = img.crop((crop_x1, crop_y1, crop_x2, crop_y2))
                 crop_lab = cv2.cvtColor(np.asarray(crop_img), cv2.COLOR_RGB2Lab)
-                
-                #判断语料中每个字是否在字体文件中
-                all_in_fonts=word_in_font(chars,unsupport_chars,font_path)
 
-                # 颜色标准差阈值，颜色太丰富就不要了,单词不在字体文件中不要
-                if (np.linalg.norm(np.reshape(np.asarray(crop_lab),(-1,3)).std(axis=0))>55 or all_in_fonts) and retry<30:  
-                    retry = retry+1                               
-                    print('crop background retry',retry)
+                # background color filter
+                if (np.linalg.norm(np.reshape(np.asarray(crop_lab),(-1,3)).std(axis=0)) > 55) and retry < 30:
+                    retry += 1                               
+                    print('crop background color too abundant retry')
                     continue
                 
                 r = random.randint(0,255)
@@ -192,12 +179,12 @@ def get_horizontal_text_picture(bg_imnames,chars,fonts_list,font_unsupport_chars
 
                 break
             else:
-                print('bad background image name', img_path)
+                print("background image too small retry. Image name:{}".format(img_path))
                 pass
 
-    draw = ImageDraw.Draw(img)
-    draw.text((x1, y1), chars, best_color, font=font)
-    crop_img = img.crop((crop_x1, crop_y1, crop_x2, crop_y2))
+        draw = ImageDraw.Draw(img)
+        draw.text((x1, y1), chars, best_color, font=font)
+        crop_img = img.crop((crop_x1, crop_y1, crop_x2, crop_y2))
                 
     return crop_img, chars
 
@@ -253,7 +240,6 @@ if __name__ == '__main__':
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     
-    # print('args.config_file',args.config_file)
     flag = load_config(args.config_file) 
     
     # noiser parameters
@@ -271,51 +257,43 @@ if __name__ == '__main__':
     bg_imnames = os.listdir(bg_img_root_path)
     
     labels_path = args.label_file
-        
+    
     # dictionary path    
     chars_file = args.chars_file
-
-    '''
-    返回的是字典, key对应font_path,value对应字体支持的字符
-    '''
     font_unsupport_chars = get_unsupported_chars(fonts_list, chars_file)
     
     f = open(labels_path,'a',encoding='utf-8')
-    print('start generating...')
-    t0 = time.time()
+    print('start generating images')
     for j in tqdm(range(len(char_lines))):
-        print(char_lines[j])
         img_n = 0
         for i in range(args.num_img):
             img_n += 1
-            # print('img_n',img_n)
-            gen_img, chars = get_horizontal_text_picture(bg_imnames, char_lines[j], fonts_list, font_unsupport_chars, args)
+            gen_img, chars = generate_text_picture(bg_imnames, char_lines[j], fonts_list, font_unsupport_chars, args)
             save_img_name = 'img_' + str(j).zfill(3) + '_' + str(i).zfill(3) + '.jpg'
             
             if gen_img.mode != 'RGB':
                 gen_img= gen_img.convert('RGB')
             
-            #高斯模糊
+            # gauss blur
             if args.blur:
                 image_arr = np.array(gen_img) 
                 gen_img = apply_blur_on_output(image_arr)            
                 gen_img = Image.fromarray(np.uint8(gen_img))
-            #模糊图像，模拟小图片放大的效果
+            # Blurred image
             if args.prydown:
                 image_arr = np.array(gen_img) 
                 gen_img = apply_prydown(image_arr)
                 gen_img = Image.fromarray(np.uint8(gen_img))
-            #左右运动模糊
+            # left and right motion blur
             if args.lr_motion:
                 image_arr = np.array(gen_img)
                 gen_img = apply_lr_motion(image_arr)
                 gen_img = Image.fromarray(np.uint8(gen_img))       
-            #上下运动模糊       
+            # up and down motion blur     
             if args.ud_motion:
                 image_arr = np.array(gen_img)
                 gen_img = apply_up_motion(image_arr)        
                 gen_img = Image.fromarray(np.uint8(gen_img)) 
-        
             if apply(flag.noise):
                 gen_img = np.clip(gen_img, 0., 255.)
                 gen_img = noiser.apply(gen_img)
@@ -323,7 +301,5 @@ if __name__ == '__main__':
 
             gen_img.save(args.output_dir+save_img_name)
             f.write(save_img_name+'\t'+chars+'\n')
-            # print('gennerating:-------'+save_img_name)
-    t1=time.time()
     f.close()
-    print('all_time',t1-t0)
+    print('end generating images')
