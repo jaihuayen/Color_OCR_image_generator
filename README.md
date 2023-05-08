@@ -30,16 +30,13 @@ This code solves this problem by adding random spaces to the code. The specific 
 ## Arguments
 
 ```
-usage: OCR_image_generator.py [-h] [--num_img NUM_IMG]
-                              [--font_min_size FONT_MIN_SIZE]
-                              [--font_max_size FONT_MAX_SIZE]
-                              [--bg_path BG_PATH] [--fonts_path FONTS_PATH]
-                              [--corpus_path CORPUS_PATH]
-                              [--chars_file CHARS_FILE] [--blur] [--prydown]
-                              [--lr_motion] [--ud_motion] [--random_offset]
-                              [--config_file CONFIG_FILE]
-                              [--output_dir OUTPUT_DIR]
-                              [--label_file LABEL_FILE]
+usage: main.py [-h] [--num_img NUM_IMG] [--font_min_size FONT_MIN_SIZE]
+               [--font_max_size FONT_MAX_SIZE] [--bg_path BG_PATH]
+               [--fonts_path FONTS_PATH] [--corpus_path CORPUS_PATH]
+               [--chars_file CHARS_FILE] [--blur] [--prydown] [--lr_motion]
+               [--ud_motion] [--random_offset] [--config_file CONFIG_FILE]
+               [--random_augmentation] [--output_dir OUTPUT_DIR]
+               [--label_file LABEL_FILE]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -66,6 +63,8 @@ optional arguments:
   --random_offset       Randomly add offset
   --config_file CONFIG_FILE
                         Set the parameters when rendering images
+  --random_augmentation
+                        Set random augmentations
   --output_dir OUTPUT_DIR
                         Images save dir
   --label_file LABEL_FILE
