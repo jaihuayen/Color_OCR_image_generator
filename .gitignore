@@ -1,7 +1,19 @@
 .vscode/
 __pycache__/
 tools/__pycache__/
-corpus_generator/.ipynb_checkpoints/
+.caches/
 output/
 
+training_set/
+train_corpus/
+
+validation_corpus/
+validation_set/
+
+corpus_generator/.ipynb_checkpoints/
+corpus_generator/train_corpus.txt
+corpus_generator/validate_corpus.txt
+
 labels.txt
+validation.txt
+train.txt
