@@ -66,7 +66,8 @@ def load_bgs(bg_dir):
             image_path = os.path.join(root, file_name)
 
             # For load non-ascii image_path on Windows
-            bg = cv2.imdecode(np.fromfile(image_path, dtype=np.uint8), cv2.IMREAD_COLOR)
+            bg = cv2.imdecode(np.fromfile(
+                image_path, dtype=np.uint8), cv2.IMREAD_COLOR)
 
             dst.append(bg)
 
@@ -122,13 +123,15 @@ def get_platform():
 
     return platforms[sys.platform]
 
+
 def get_fonts(fonts_path):
     font_files = os.listdir(fonts_path)
-    fonts_list=[]
+    fonts_list = []
     for font_file in font_files:
-        font_path=os.path.join(fonts_path,font_file)
+        font_path = os.path.join(fonts_path, font_file)
         fonts_list.append(font_path)
     return fonts_list
+
 
 def get_unsupported_chars(fonts, chars_file):
     """
@@ -148,6 +151,7 @@ def get_unsupported_chars(fonts, chars_file):
         fonts_unsupported_chars[font_path] = unsupported_chars
     return fonts_unsupported_chars
 
+
 def load_chars(filepath):
     if not os.path.exists(filepath):
         print("Chars file not exists.")
@@ -162,6 +166,7 @@ def load_chars(filepath):
             ret += line[0]
     return ret
 
+
 def get_fonts_chars(fonts, chars_file):
     """
     loads/saves font supported chars from cache file
@@ -173,7 +178,8 @@ def get_fonts_chars(fonts, chars_file):
     """
     out = {}
 
-    cache_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../', '.caches'))
+    cache_dir = os.path.abspath(os.path.join(
+        os.path.dirname(__file__), '../', '.caches'))
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir)
 
@@ -189,18 +195,21 @@ def get_fonts_chars(fonts, chars_file):
         if not os.path.exists(cache_file_path):
             ttf = load_font(font_path)
             _, supported_chars = check_font_chars(ttf, chars)
-            print('Save font(%s) supported chars(%d) to cache' % (font_path, len(supported_chars)))
+            print('Save font(%s) supported chars(%d) to cache' %
+                  (font_path, len(supported_chars)))
 
             with open(cache_file_path, 'wb') as f:
                 pickle.dump(supported_chars, f, pickle.HIGHEST_PROTOCOL)
         else:
             with open(cache_file_path, 'rb') as f:
                 supported_chars = pickle.load(f)
-            print('Load font(%s) supported chars(%d) from cache' % (font_path, len(supported_chars)))
+            print('Load font(%s) supported chars(%d) from cache' %
+                  (font_path, len(supported_chars)))
 
         out[font_path] = supported_chars
 
     return out
+
 
 def load_font(font_path):
     """
@@ -214,9 +223,11 @@ def load_font(font_path):
         return ttc.fonts[0]
 
     if font_path.endswith('ttf') or font_path.endswith('TTF') or font_path.endswith('otf'):
-        ttf = TTFont(font_path, 0, allowVID = 0, ignoreDecompileErrors = True, fontNumber = -1)
+        ttf = TTFont(font_path, 0, allowVID=0,
+                     ignoreDecompileErrors=True, fontNumber=-1)
         return ttf
-    
+
+
 def md5(string):
     m = hashlib.md5()
     m.update(string.encode('utf-8'))
@@ -230,11 +241,11 @@ def check_font_chars(ttf, charset):
     :param charset: chars
     :return: unsupported_chars, supported_chars
     """
-    chars_int=set()
+    chars_int = set()
     for table in ttf['cmap'].tables:
-        for k,v in table.cmap.items():
-            chars_int.add(k)            
-            
+        for k, v in table.cmap.items():
+            chars_int.add(k)
+
     unsupported_chars = []
     supported_chars = []
     for c in charset:
@@ -246,21 +257,24 @@ def check_font_chars(ttf, charset):
     ttf.close()
     return unsupported_chars, supported_chars
 
+
 def get_char_lines(txt_root_path):
-    txt_files = os.listdir(txt_root_path) 
+    txt_files = os.listdir(txt_root_path)
     char_lines = []
     for txt in txt_files:
-        f = open(os.path.join(txt_root_path,txt),mode='r', encoding='utf-8')
+        f = open(os.path.join(txt_root_path, txt), mode='r', encoding='utf-8')
         lines = f.readlines()
         f.close()
         for line in lines:
-            char_lines.append(line.strip().replace('\xef\xbb\xbf', '').replace('\ufeff', ''))
+            char_lines.append(line.strip().replace(
+                '\xef\xbb\xbf', '').replace('\ufeff', ''))
     return char_lines
-    
-def word_in_font(word,unsupport_chars,font_path):
+
+
+def word_in_font(word, unsupport_chars, font_path):
     for c in word:
         if c in unsupport_chars:
-            print('Retry pick_font(), \'%s\' contains chars \'%s\' not supported by font %s' % (word, c, font_path))  
+            # print('Retry pick_font(), \'%s\' contains chars \'%s\' not supported by font %s' % (word, c, font_path))
             return True
         else:
             continue

@@ -42,7 +42,7 @@ def generate_text_picture(bg_imnames, chars, fonts_list, font_unsupport_chars, a
             not_in_fonts = word_in_font(chars, unsupport_chars, font_path)
 
             if not_in_fonts:
-                print('font not support. font pick retry.')
+                # print('font not support. font pick retry.')
                 continue
 
             for c in chars:
@@ -93,25 +93,28 @@ def generate_text_picture(bg_imnames, chars, fonts_list, font_unsupport_chars, a
                 # background color filter
                 if (np.linalg.norm(np.reshape(np.asarray(crop_lab), (-1, 3)).std(axis=0)) > 55) and retry < 30:
                     retry += 1
-                    print('crop background color too abundant retry.')
+                    # print('crop background color too abundant retry.')
                     continue
                 r = random.randint(0, 255)
                 g = random.randint(0, 255)
                 b = random.randint(0, 255)
                 best_color = (r, g, b)
 
+                draw = ImageDraw.Draw(img)
+
+                for i, c in enumerate(chars):
+                    draw.text((x1, y1), c, best_color, font=font)
+                    x1 += (chars_size[i][0] + char_space_width)
+
+                crop_img = img.crop((crop_x1, crop_y1, crop_x2, crop_y2))
+
+                if (np.linalg.norm(np.reshape(np.asarray(crop_img), (-1, 3)).std(axis=0)) < 20):
+                    continue
+
                 break
             else:
-                print("background image too small retry. Image name:{}".format(img_path))
+                # print("background image too small retry. Image name:{}".format(img_path))
                 pass
-
-        draw = ImageDraw.Draw(img)
-
-        for i, c in enumerate(chars):
-            draw.text((x1, y1), c, best_color, font=font)
-            x1 += (chars_size[i][0] + char_space_width)
-
-        crop_img = img.crop((crop_x1, crop_y1, crop_x2, crop_y2))
 
     else:
         while True:
@@ -130,7 +133,7 @@ def generate_text_picture(bg_imnames, chars, fonts_list, font_unsupport_chars, a
             not_in_fonts = word_in_font(chars, unsupport_chars, font_path)
 
             if not_in_fonts:
-                print('font not support. font pick retry.')
+                # print('font not support. font pick retry.')
                 continue
 
             f_w, f_h = font.getsize(chars)
@@ -169,7 +172,7 @@ def generate_text_picture(bg_imnames, chars, fonts_list, font_unsupport_chars, a
                 # background color filter
                 if (np.linalg.norm(np.reshape(np.asarray(crop_lab), (-1, 3)).std(axis=0)) > 55) and retry < 30:
                     retry += 1
-                    print('crop background color too abundant retry')
+                    # print('crop background color too abundant retry')
                     continue
 
                 r = random.randint(0, 255)
@@ -177,14 +180,17 @@ def generate_text_picture(bg_imnames, chars, fonts_list, font_unsupport_chars, a
                 b = random.randint(0, 255)
                 best_color = (r, g, b)
 
+                draw = ImageDraw.Draw(img)
+                draw.text((x1, y1), chars, best_color, font=font)
+                crop_img = img.crop((crop_x1, crop_y1, crop_x2, crop_y2))
+
+                if (np.linalg.norm(np.reshape(np.asarray(crop_img), (-1, 3)).std(axis=0)) < 20):
+                    continue
+
                 break
             else:
-                print("background image too small retry. Image name:{}".format(img_path))
+                # print("background image too small retry. Image name:{}".format(img_path))
                 pass
-
-        draw = ImageDraw.Draw(img)
-        draw.text((x1, y1), chars, best_color, font=font)
-        crop_img = img.crop((crop_x1, crop_y1, crop_x2, crop_y2))
 
     return crop_img, chars
 
@@ -316,9 +322,9 @@ if __name__ == '__main__':
             if args.random_augmentation:
                 image_arr = np.array(gen_img)
                 gen_img = random_augment_img(image_arr)
-                image = Image.fromarray(np.uint8(gen_img))
+                gen_img = Image.fromarray(np.uint8(gen_img))
 
             gen_img.save(args.output_dir+save_img_name)
-            f.write(save_img_name+'\t'+chars+'\n')
+            f.write('folder1/' + save_img_name+'\t'+chars+'\n')
     f.close()
     print('end generating images')
